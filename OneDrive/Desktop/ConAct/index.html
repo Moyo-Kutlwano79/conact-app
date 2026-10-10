@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ConAct</title>
+<style>
+:root{--ink:#1B1F3B;--pri:#2D2A6E;--acc:#2EC4A6;--bg:#F4F5FA;--card:#fff;--line:#DDE0EE;--mut:#5F6580}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",Roboto,Arial,sans-serif}
+header{background:var(--pri);color:#fff;padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header .logo{font-size:22px;font-weight:700;margin-right:auto}
+header .logo span{color:var(--acc)}
+main{max-width:760px;margin:0 auto;padding:16px}
+h2{margin:8px 0 12px;font-size:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0}
+.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.grow{flex:1;min-width:0}
+.btn{background:var(--acc);color:#10201C;border:0;border-radius:8px;padding:9px 16px;font:inherit;font-weight:700;cursor:pointer}
+.btn.alt{background:none;border:1px solid var(--line);color:var(--ink);font-weight:400}
+.btn.top{background:rgba(255,255,255,.15);color:#fff;font-weight:400}
+.btn[disabled]{opacity:.55;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+input,select,textarea{font:inherit;padding:9px 12px;border:1px solid var(--line);border-radius:8px;width:100%;background:#fff;color:var(--ink)}
+.av{width:44px;height:44px;border-radius:50%;background:var(--pri);color:#fff;display:grid;place-items:center;font-weight:700;flex:none}
+.mut{color:var(--mut);font-size:14px}
+.chip{display:inline-block;border:1px solid var(--line);border-radius:20px;padding:0 10px;font-size:13px;margin:4px 6px 0 0}
+.tile{width:100%;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin:10px 0;cursor:pointer;font:inherit;color:inherit;display:flex;gap:12px;align-items:center}
+.tile:hover{border-color:var(--acc)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px}
+.grid .tile{display:block;margin:0;text-align:center}
+.msgs{display:flex;flex-direction:column;gap:8px;min-height:260px;max-height:55vh;overflow-y:auto;padding:4px 0}
+.m{max-width:80%;padding:8px 12px;border-radius:14px;background:var(--bg)}
+.m.me{align-self:flex-end;background:var(--acc);color:#10201C}
+.err{color:#B3261E;font-size:14px;min-height:20px}
+.m img{max-width:100%;max-height:260px;border-radius:8px;display:block;margin-bottom:4px}
+.m audio{max-width:100%;display:block}
+.btn.rec{background:#B3261E;color:#fff}
+.av{overflow:hidden}
+.av img{width:100%;height:100%;object-fit:cover}
+.av.big{width:96px;height:96px;font-size:36px}
+header .av{background:var(--acc);color:#10201C;width:34px;height:34px}
+.bio{white-space:pre-wrap;overflow-wrap:anywhere}
+textarea{min-height:120px;resize:vertical}
+.btn.icon{padding:9px 12px;display:inline-flex;align-items:center;justify-content:center}
+h3{font-size:16px}
+.macts{margin-top:4px}
+.macts button{background:none;border:0;padding:2px 10px 2px 0;cursor:pointer;color:inherit;opacity:.75;text-decoration:underline;font:inherit;font-size:12px}
+.m.gone{opacity:.6}
+.note label{display:block;margin-top:6px;font-size:14px}
+.pm{max-width:100%;max-height:380px;border-radius:10px;display:block;margin-top:8px;background:#000}
+.post audio,.card audio{width:100%;margin-top:6px}
+.grow2{flex:1}
+.cmts{border-top:1px solid var(--line);margin-top:10px;padding-top:8px}
+.cmt{align-items:flex-start;margin:8px 0}
+.cmt .av{width:32px;height:32px;font-size:14px}
+.liked{color:#C62828}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* ConAct - demo version.
+   Everything is stored in the browser (localStorage) so you can learn the flow.
+   Passwords are plain text here: this is NOT secure. For a real app, move users,
+   connections and messages to a backend (Firebase or Supabase) with proper sign-in. */
+
+const KEY = 'conact-v1';
+
+const seed = {
+  schools: {
+    pk: { name: 'Parktown High',    partners: ['sb', 'sd'], admin: 's1' },
+    sb: { name: 'Soweto Secondary', partners: ['pk'], admin: 't2' },
+    sd: { name: 'Sandton Academy',  partners: ['pk'], admin: 's3' }
+  },
+  users: [
+    { id: 's1', login: 'thando', pw: '1234', name: 'Thando Mokoena',  school: 'pk', grade: 11, bio: 'Loves coding and chess.',          subjects: ['Maths', 'IT'] },
+    { id: 's2', login: 'lerato', pw: '1234', name: 'Lerato Khumalo',  school: 'sb', grade: 11, bio: 'Debate captain. Wants to study law.', subjects: ['History', 'English'] },
+    { id: 's3', login: 'aiden',  pw: '1234', name: 'Aiden Pillay',    school: 'sd', grade: 11, bio: 'Robotics club member.',             subjects: ['Physics', 'Maths'] },
+    { id: 's4', login: 'naledi', pw: '1234', name: 'Naledi Sithole',  school: 'sb', grade: 10, bio: 'Writes poetry and plays netball.',  subjects: ['English', 'Life Sciences'] },
+    { id: 's5', login: 'zanele', pw: '1234', name: 'Zanele Dube',     school: 'sb', grade: 11, bio: 'Aspiring doctor.',                  subjects: ['Life Sciences', 'Chemistry'] },
+    { id: 's6', login: 'kabelo', pw: '1234', name: 'Kabelo Mahlangu', school: 'pk', grade: 11, bio: 'Plays soccer, good at Accounting.',   subjects: ['Accounting', 'Maths'] },
+    { id: 's7', login: 'priya',  pw: '1234', name: 'Priya Naidoo',    school: 'sd', grade: 12, bio: 'Preparing for matric finals.',      subjects: ['Maths', 'Physics'] },
+    { id: 's8', login: 'sipho',  pw: '1234', name: 'Sipho Ndlovu',    school: 'sb', grade: 12, bio: 'Studying engineering next year.',   subjects: ['Maths', 'Physics'] },
+    { id: 't1', login: 'dlamini', pw: '1234', name: 'Ms Dlamini',  role: 'teacher', title: 'Teacher',   school: 'pk', bio: 'Teaches Mathematics at Parktown High.', subjects: ['Maths'] },
+    { id: 't2', login: 'naidoo',  pw: '1234', name: 'Mr Naidoo',   role: 'teacher', title: 'Principal', school: 'sb', bio: 'Principal of Soweto Secondary.',         subjects: [] },
+    { id: 't3', login: 'vanwyk',  pw: '1234', name: 'Mrs van Wyk', role: 'teacher', title: 'Principal', school: 'sd', bio: 'Principal of Sandton Academy.',          subjects: [] }
+  ],
+  conns: [['s1', 's2']],                 // pairs of students who are connected
+  reqs: [{ from: 's3', to: 's1' }],      // pending connection requests
+  msgs: { 's1|s2': [{ by: 's2', t: 'Hi Thando! Are you writing the Maths trial next week?' }] },
+  posts: [
+    { id: 'p1', by: 't1', school: 'pk', t: 'Welcome to Parktown High on ConAct! Share news, photos and videos from our school.', ts: Date.now() - 7200000, media: null, vo: null },
+    { id: 'p2', by: 's2', school: 'sb', t: 'Soweto Secondary athletics day is on Friday. Come and cheer us on!', ts: Date.now() - 3600000, media: null, vo: null }
+  ]
+};
+
+let DB = load();
+let me = null;                           // signed-in user
+let v = { screen: 'schools' };           // current screen
+let err = '';
+let auth = 'in';
+let draft = {};
+let note = '';
+let snote = '';
+let postDraft = { t: '' }, feedF = 'all';
+let pend = null, editing = null, playCtx = null;
+
+function load() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+  if (!d) d = structuredClone(seed);
+  const base = structuredClone(seed);
+  base.users.filter(u => u.role === 'teacher' && !d.users.some(x => x.id === u.id)).forEach(u => d.users.push(u));
+  d.users = d.users.filter(u => !['a1', 'a2', 'a3'].includes(u.id));     // old demo admin accounts
+  Object.keys(d.schools).forEach(id => {
+    const sc = d.schools[id];
+    if (sc.admin && d.users.some(u => u.id === sc.admin)) return;
+    const old = d.users.find(u => u.role === 'admin' && u.school === id);
+    sc.admin = (base.schools[id] && base.schools[id].admin) || (old && old.id) || (d.users.find(u => u.school === id) || {}).id || null;
+  });
+  d.users.forEach(u => { if (u.role === 'admin') { u.role = 'teacher'; u.title = 'Teacher'; u.bio = u.bio || 'New to ConAct.'; u.subjects = u.subjects || []; } });
+  if (!Array.isArray(d.posts)) d.posts = structuredClone(seed.posts);
+  return d;
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(DB)); return true; } catch (e) { return false; } }
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const avatar = (u, cls = '') => `<div class="av ${cls}">${u.pic ? `<img src="${esc(u.pic)}" alt="">` : esc(u.name[0])}</div>`;
+const mottoBr = id => DB.schools[id].motto ? '<br><i class="mut">' + esc(DB.schools[id].motto) + '</i>' : '';
+const uid = p => p + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+const schoolAv = (id, cls = '') => `<div class="av ${cls}">${DB.schools[id].pic ? `<img src="${esc(DB.schools[id].pic)}" alt="">` : esc(DB.schools[id].name[0])}</div>`;
+const user = id => DB.users.find(u => u.id === id);
+const pair = (a, b) => [a, b].sort().join('|');
+const isConn = (a, b) => DB.conns.some(c => pair(c[0], c[1]) === pair(a, b));
+const sent = (a, b) => DB.reqs.some(r => r.from === a && r.to === b);
+/* One account per school: names are compared ignoring case, spaces, punctuation and the word 'school' */
+const ICON_PHOTO = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-8 9"/></svg>';
+const ICON_MIC = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+const ICON_VIDEO = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3z"/></svg>';
+const norm = s => s.toLowerCase().replace(/\bschool\b/g, '').replace(/[^a-z0-9]/g, '');
+const mySchools = () => [me.school, ...DB.schools[me.school].partners];
+
+/* ---------- Screens ---------- */
+
+function sSignIn() {
+  return `<main><h2>Sign in to ConAct</h2>
+  <div class="card">
+    <label>Username<input id="lu" autocomplete="username"></label><br><br>
+    <label>Password<input id="lp" type="password" autocomplete="current-password"></label>
+    <p class="err" role="alert">${esc(err)}</p>
+    <button class="btn" data-a="login">Sign in</button>
+  </div>
+  <p><button class="btn alt" data-a="toup">New here? Create an account</button></p>
+  <p class="mut">Demo logins (password 1234): thando, lerato, aiden, naledi, zanele, kabelo, priya, sipho. Teachers: dlamini, naidoo, vanwyk</p></main>`;
+}
+
+function sSignUp() {
+  const d = draft, tch = d.role === 'teacher';
+  const opts = Object.keys(DB.schools).map(k => `<option value="${k}" ${d.school === k ? 'selected' : ''}>${esc(DB.schools[k].name)}</option>`).join('');
+  const grades = [8, 9, 10, 11, 12].map(g => `<option ${String(d.grade) === String(g) ? 'selected' : ''}>${g}</option>`).join('');
+  return `<main><h2>Create your ConAct account</h2><div class="card">
+    <label>I am a<select id="srole"><option value="student">Student</option><option value="teacher" ${tch ? 'selected' : ''}>Teacher or principal</option></select></label><br><br>
+    <label>Full name<input id="sn" value="${esc(d.name || '')}"></label><br><br>
+    <label>Username<input id="sl" autocomplete="username" value="${esc(d.login || '')}"></label><br><br>
+    <label>Password (at least 4 characters)<input id="sp" type="password" autocomplete="new-password"></label><br><br>
+    <div class="stud" style="display:${tch ? 'none' : 'block'}"><label>Grade<select id="sg">${grades}</select></label><br><br></div>
+    <div class="tchr" style="display:${tch ? 'block' : 'none'}"><label>Position<select id="stitle"><option ${d.title === 'Teacher' ? 'selected' : ''}>Teacher</option><option ${d.title === 'Principal' ? 'selected' : ''}>Principal</option></select></label><br><br></div>
+    <label>School<select id="ssch"><option value="">Choose your school</option>${opts}<option value="new" ${d.school === 'new' ? 'selected' : ''}>My school is not listed</option></select></label>
+    <div id="snewbox" style="display:${d.school === 'new' ? 'block' : 'none'}"><br>
+      <label>School name<input id="snew" value="${esc(d.newName || '')}"></label>
+      <p class="mut">Each school has one account on ConAct. If your school is new, you become its admin. If it already exists, you join it.</p></div><br>
+    <div><label>About you (write as much as you like)<textarea id="sb">${esc(d.bio || '')}</textarea></label><br><br>
+    <label>Subjects<input id="ss" placeholder="Maths, IT" value="${esc(d.subjects || '')}"></label></div>
+    <p class="err" role="alert">${esc(err)}</p>
+    <div class="row"><button class="btn" data-a="signup">Create account</button><button class="btn alt" data-a="toin">I already have an account</button></div>
+  </div></main>`;
+}
+
+function sFind() {
+  const mine = mySchools();
+  const list = Object.keys(DB.schools).filter(k => !mine.includes(k)).map(k => `<div class="card row">${schoolAv(k)}
+    <div class="grow"><b>${esc(DB.schools[k].name)}</b>${mottoBr(k)}</div><button class="btn" data-a="linkschool" data-v="${k}">Connect school</button></div>`).join('');
+  return `<main><h2>Find schools</h2>${list || '<p class="mut">Every school on ConAct is already connected to yours.</p>'}</main>`;
+}
+
+function sSchools() {
+  const incoming = DB.reqs.filter(r => r.to === me.id);
+  const reqHtml = incoming.length ? `<h2>Connection requests</h2>` + incoming.map(r => {
+    const u = user(r.from);
+    return `<div class="card row">${avatar(u)}
+      <div class="grow"><b>${esc(u.name)}</b><br><span class="mut">${esc(DB.schools[u.school].name)}, Grade ${u.grade}</span></div>
+      <button class="btn" data-a="accept" data-v="${u.id}">Accept</button>
+      <button class="btn alt" data-a="decline" data-v="${u.id}">Decline</button></div>`;
+  }).join('') : '';
+  const list = mySchools().map(id => `<button class="tile" data-a="school" data-v="${id}">
+      ${schoolAv(id)}
+      <div class="grow"><b>${esc(DB.schools[id].name)}</b><br><span class="mut">${id === me.school ? 'Your school' : 'Connected school'}</span>${mottoBr(id)}</div></button>`).join('');
+  return `<main>${reqHtml}<h2>Your connected schools</h2>${list}<p><button class="btn alt" data-a="find">Find more schools</button></p></main>`;
+}
+
+function sGrades() {
+  const grades = [8, 9, 10, 11, 12].map(g => {
+    const n = DB.users.filter(u => u.school === v.school && u.grade === g && u.id !== me.id).length;
+    return `<button class="tile" data-a="grade" data-v="${g}"><b>Grade ${g}</b><br><span class="mut">${n} student${n === 1 ? '' : 's'}</span></button>`;
+  }).join('');
+  return `<main><div class="row">${schoolAv(v.school)}<div><h2 style="margin:0">${esc(DB.schools[v.school].name)}: choose a grade</h2>${mottoBr(v.school)}</div></div>
+  <p><button class="btn alt" data-a="viewposts" data-v="${v.school}">View posts from this school</button></p><div class="grid">${grades}</div></main>`;
+}
+
+function sStudents() {
+  const list = DB.users.filter(u => u.school === v.school && u.grade === v.grade && u.id !== me.id);
+  const cards = list.map(u => {
+    const btn = actionBtn(u);
+    return `<div class="card"><div class="row">${avatar(u)}
+      <div class="grow"><b>${esc(u.name)}</b><br><span class="mut">${esc(DB.schools[u.school].name)}, Grade ${u.grade}</span></div><button class="btn alt" data-a="viewp" data-v="${u.id}">View profile</button>${btn}</div>
+      ${u.subjects.map(s => `<span class="chip">${esc(s)}</span>`).join('')}
+      ${isConn(me.id, u.id) || me.role === 'teacher' ? '' : '<p class="mut">You can chat once you are connected.</p>'}</div>`;
+  }).join('');
+  return `<main><h2>${esc(DB.schools[v.school].name)}, Grade ${v.grade}</h2>${cards || '<p class="mut">No other students in this grade yet.</p>'}</main>`;
+}
+
+function actionBtn(u) {
+  if (me.role === 'teacher') return '';
+  if (isConn(me.id, u.id)) return `<button class="btn" data-a="chat" data-v="${u.id}">Chat</button>`;
+  if (sent(me.id, u.id)) return `<button class="btn alt" disabled>Request sent</button>`;
+  if (sent(u.id, me.id)) return `<button class="btn" data-a="accept" data-v="${u.id}">Accept request</button>`;
+  return `<button class="btn" data-a="connect" data-v="${u.id}">Connect</button>`;
+}
+
+function sViewProfile() {
+  const u = user(v.peer);
+  return `<main><h2>Profile</h2><div class="card">
+    <div class="row">${avatar(u, 'big')}<div class="grow"><b>${esc(u.name)}</b><br><span class="mut">${esc(DB.schools[u.school].name)}, Grade ${u.grade}</span><br>${u.subjects.map(t => `<span class="chip">${esc(t)}</span>`).join('')}</div></div>
+    <h3 style="margin:16px 0 4px">About</h3><p class="bio">${esc(u.bio)}</p>
+    ${actionBtn(u)}</div></main>`;
+}
+
+function sSchoolSettings() {
+  const sc = DB.schools[me.school], rq = sc.adminReq || [], sn = snote; snote = '';
+  if (sc.admin === me.id) {
+    const ts = DB.users.filter(u => u.school === me.school && u.role === 'teacher' && u.id !== me.id);
+    return `<div class="card"><h3 style="margin-top:0">School settings: you are the admin of ${esc(sc.name)}</h3>
+      <div class="row">${schoolAv(me.school, 'big')}<div class="grow"><button class="btn" data-a="pickspic">${sc.pic ? 'Change school picture' : 'Add school picture'}</button> ${sc.pic ? '<button class="btn alt" data-a="rmspic">Remove school picture</button>' : ''}</div></div>
+      <input type="file" id="spic" accept="image/*" hidden>
+      <h3>School motto</h3>
+      <input id="sm" aria-label="School motto" placeholder="For example: Knowledge is power" value="${esc(sc.motto || '')}">
+      <div class="row" style="margin-top:8px"><button class="btn" data-a="savemotto">Save motto</button><span class="mut" role="status">${esc(sn)}</span></div>
+      <h3>Teachers and principals</h3>
+      ${ts.length ? ts.map(u => `<div class="row" style="margin-bottom:8px"><div class="grow"><b>${esc(u.name)}</b> <span class="mut">${esc(u.title || 'Teacher')}${rq.includes(u.id) ? ', asked to be admin' : ''}</span></div>
+        <button class="btn" data-a="makeadmin" data-v="${u.id}">Make admin</button>${rq.includes(u.id) ? `<button class="btn alt" data-a="denyadmin" data-v="${u.id}">Decline</button>` : ''}</div>`).join('') : '<p class="mut">No teachers or principals have joined this school yet.</p>'}
+      <p class="mut">Making someone else the admin hands over your admin rights.</p></div>`;
+  }
+  if (me.role === 'teacher') {
+    const a = user(sc.admin);
+    return `<div class="card"><h3 style="margin-top:0">School admin</h3>
+      <p class="mut">${a ? esc(a.name) : 'Someone'} is the admin of ${esc(sc.name)}. As a teacher or principal you can ask to take over.</p>
+      ${rq.includes(me.id) ? '<button class="btn alt" disabled>Request sent</button>' : '<button class="btn" data-a="reqadmin">Request to be admin</button>'}</div>`;
+  }
+  return '';
+}
+
+function sProfile() {
+  const n = note; note = '';
+  return `<main><h2>My profile</h2><div class="card">
+    <div class="row">${avatar(me, 'big')}<div class="grow"><b>${esc(me.name)}</b><br><span class="mut">${esc(DB.schools[me.school].name)}, ${me.role === 'teacher' ? esc(me.title || 'Teacher') : 'Grade ' + me.grade}</span><br>${(me.subjects || []).map(t => `<span class="chip">${esc(t)}</span>`).join('')}</div></div>
+    <div class="row"><button class="btn" data-a="pickpic">${me.pic ? 'Change photo' : 'Add profile photo'}</button>${me.pic ? '<button class="btn alt" data-a="rmpic">Remove photo</button>' : ''}</div>
+    <br><label>About me (write as much as you like)<textarea id="pb">${esc(me.bio)}</textarea></label>
+    <div class="row" style="margin-top:8px"><button class="btn" data-a="savebio">Save bio</button><span class="mut" role="status">${esc(n)}</span></div>
+    <input type="file" id="pic" accept="image/*" hidden></div>${sSchoolSettings()}</main>`;
+}
+
+function postComposer() {
+  const d = postDraft, m = d.media;
+  return `<div class="card"><textarea id="ptx" aria-label="New school post" placeholder="Share something with ${esc(DB.schools[me.school].name)} and its connected schools">${esc(d.t || '')}</textarea>
+    ${m ? (m.type === 'image' ? `<img class="pm" src="${esc(m.url)}" alt="Attached picture">` : `<video class="pm" src="${esc(m.url)}" controls preload="metadata"></video>`) : ''}
+    ${d.vo ? `<div class="row" style="margin-top:8px"><span class="mut">Voice-over</span><audio controls src="${esc(d.vo.url)}" style="flex:1;min-width:200px"></audio><button class="btn alt" data-a="rmvo">Remove voice-over</button></div>` : ''}
+    <div class="row" style="margin-top:10px">
+      <button class="btn alt icon" data-a="pphoto" aria-label="Add a picture" title="Add a picture">${ICON_PHOTO}</button>
+      <button class="btn alt icon" data-a="pvideo" aria-label="Add a video" title="Add a video">${ICON_VIDEO}</button>
+      <button class="btn alt icon" data-a="vomic" aria-label="Record a voice-over" title="Record a voice-over for the picture" ${m && m.type === 'image' ? '' : 'disabled'}>${ICON_MIC}</button>
+      ${m ? '<button class="btn alt" data-a="rmmedia">Remove attachment</button>' : ''}
+      <span class="grow2"></span><button class="btn" data-a="post">Post</button></div>
+    <p class="mut">To add a voice-over, attach a picture first, then tap the microphone.</p>
+    <input type="file" id="pimg" accept="image/*" hidden><input type="file" id="pvid" accept="video/*" hidden></div>`;
+}
+
+const when = ts => new Date(ts).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' });
+
+const heart = on => `<svg viewBox="0 0 24 24" width="22" height="22" fill="${on ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.6-9.2A5.4 5.4 0 0 1 12 6.3a5.4 5.4 0 0 1 9.6 5.5C19.5 16.4 12 21 12 21z"/></svg>`;
+const ICON_COMMENT = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L3 21l1.9-5.4A8 8 0 1 1 21 12z"/></svg>';
+const cdraft = {}, openC = {};
+
+function commentsHtml(p) {
+  const school = DB.schools[p.school];
+  const list = (p.comments || []).map(c => {
+    const a = user(c.by); if (!a) return '';
+    const can = c.by === me.id || p.by === me.id || school.admin === me.id;
+    return `<div class="cmt row">${avatar(a)}<div class="grow"><b>${esc(a.name)}</b> <span class="mut">${esc(DB.schools[a.school].name)}, ${when(c.ts)}</span><div class="bio">${esc(c.t)}</div></div>
+      ${can ? `<button class="btn alt" data-a="cdel" data-v="${p.id}|${c.id}">Delete</button>` : ''}</div>`;
+  }).join('');
+  return `<div class="cmts">${list || '<p class="mut">No comments yet. Start the conversation.</p>'}
+    <div class="cmin"><input class="cin" data-pid="${p.id}" aria-label="Write a comment" placeholder="Write a comment" value="${esc(cdraft[p.id] || '')}"><button class="btn" data-a="cadd" data-v="${p.id}">Comment</button></div></div>`;
+}
+
+function postActions(p) {
+  const likes = p.likes || [], n = (p.comments || []).length, liked = likes.includes(me.id);
+  const names = likes.map(i => (user(i) || {}).name).filter(Boolean).slice(0, 10).join(', ');
+  return `<div class="row" style="margin-top:10px">
+    <button class="btn alt icon ${liked ? 'liked' : ''}" data-a="like" data-v="${p.id}" aria-pressed="${liked}" aria-label="${liked ? 'Unlike' : 'Like'} this post" title="${esc(names || 'Be the first to like this')}">${heart(liked)}<span style="margin-left:6px">${likes.length}</span></button>
+    <button class="btn alt icon" data-a="ctoggle" data-v="${p.id}" aria-expanded="${!!openC[p.id]}" aria-label="Show comments" title="Comments">${ICON_COMMENT}<span style="margin-left:6px">${n}</span></button></div>
+    ${openC[p.id] ? commentsHtml(p) : ''}`;
+}
+
+function postHtml(p) {
+  const a = user(p.by), sc = DB.schools[p.school];
+  if (!a || !sc) return '';
+  const canDel = p.by === me.id || sc.admin === me.id;
+  const who = a.role === 'teacher' ? esc(a.title || 'Teacher') : 'Grade ' + a.grade;
+  return `<article class="card post"><div class="row">${avatar(a)}<div class="grow"><b>${esc(a.name)}</b> <span class="mut">${who}</span><br>
+    <span class="sch" style="--c:#2D2A6E">${esc(sc.name)}</span><span class="mut">${when(p.ts)}</span></div>
+    ${canDel ? `<button class="btn alt" data-a="delpost" data-v="${p.id}">Delete</button>` : ''}</div>
+    ${p.t ? `<p class="bio">${esc(p.t)}</p>` : ''}
+    ${p.media ? (p.media.type === 'image' ? `<img class="pm" data-mid="${p.media.id}" alt="Picture shared by ${esc(a.name)}">` : `<video class="pm" data-mid="${p.media.id}" controls preload="metadata"></video>`) : ''}
+    ${p.vo ? `<div class="mut" style="margin-top:8px">Voice-over</div><audio controls data-mid="${p.vo}"></audio>` : ''}${postActions(p)}</article>`;
+}
+
+function sFeed() {
+  const ids = mySchools();
+  if (feedF !== 'all' && !ids.includes(feedF)) feedF = 'all';
+  const list = DB.posts.filter(p => ids.includes(p.school) && (feedF === 'all' || p.school === feedF)).sort((x, y) => y.ts - x.ts);
+  return `<main><h2>School posts</h2>${postComposer()}
+    <div class="row sp"><h2>Latest</h2><select id="ff" aria-label="Show posts from"><option value="all">All connected schools</option>${ids.map(k => `<option value="${k}" ${feedF === k ? 'selected' : ''}>${esc(DB.schools[k].name)}</option>`).join('')}</select></div>
+    ${list.map(postHtml).join('') || '<p class="mut">No posts yet. Be the first to post.</p>'}</main>`;
+}
+
+function sChats() {
+  const peers = DB.conns.filter(c => c.includes(me.id)).map(c => user(c[0] === me.id ? c[1] : c[0]));
+  const list = peers.map(u => {
+    const m = DB.msgs[pair(me.id, u.id)] || [], last = m[m.length - 1];
+    return `<button class="tile" data-a="chat" data-v="${u.id}">${avatar(u)}
+      <div class="grow"><b>${esc(u.name)}</b> <span class="mut">${esc(DB.schools[u.school].name)}</span><br>
+      <span class="mut">${last ? esc(last.del ? 'Message deleted' : last.t || (last.img ? 'Photo' : 'Voice note')) : 'No messages yet'}</span></div></button>`;
+  }).join('');
+  return `<main><h2>Your chats</h2>${list || '<p class="mut">No connections yet. Open a school, pick a grade and tap Connect.</p>'}</main>`;
+}
+
+function sThread() {
+  const u = user(v.peer), ms = DB.msgs[pair(me.id, u.id)] || [];
+  return `<main><div class="row">${avatar(u)}<div><h2 style="margin:0">${esc(u.name)}</h2><span class="mut">${esc(DB.schools[u.school].name)}, Grade ${u.grade}</span></div></div>
+  <div class="card"><div class="msgs" aria-live="polite">${ms.map(msgHtml).join('') || '<p class="mut">Say hello.</p>'}</div>
+  ${pend ? previewHtml() : ''}
+  <div class="row"><input id="mt" class="grow" aria-label="Message" placeholder="Send message">
+    <button class="btn alt icon" data-a="photo" aria-label="Send a photo" title="Send a photo">${ICON_PHOTO}</button><button class="btn alt icon" data-a="mic" aria-label="Record a voice note" title="Record a voice note">${ICON_MIC}</button><button class="btn" data-a="send">Send</button></div>
+  <input type="file" id="img" accept="image/*" hidden></div></main>`;
+}
+
+function render() {
+  document.querySelectorAll('input.cin').forEach(i => { cdraft[i.dataset.pid] = i.value; });
+  if (me && v.screen === 'feed' && $('#ptx')) postDraft.t = $('#ptx').value;
+  if (!me) { $('#app').innerHTML = `<header><div class="logo">Con<span>Act</span></div></header>` + (auth === 'up' ? sSignUp() : sSignIn()); return; }
+  const screens = { feed: sFeed, viewprofile: sViewProfile, profile: sProfile, find: sFind, schools: sSchools, grades: sGrades, students: sStudents, chats: sChats, thread: sThread };
+  $('#app').innerHTML = `<header><div class="logo">Con<span>Act</span></div>
+    ${avatar(me)}<span>${esc(me.name)}</span>
+    ${v.screen !== 'schools' ? '<button class="btn top" data-a="back">Back</button>' : ''}
+    <button class="btn top" data-a="home">Schools</button>
+    <button class="btn top" data-a="feed">Posts</button>
+    ${me.role === 'teacher' ? '' : '<button class="btn top" data-a="chats">Chats</button>'}
+    <button class="btn top" data-a="profile">Profile</button>
+    <button class="btn top" data-a="logout">Sign out</button></header>` + screens[v.screen]();
+  const box = $('.msgs'); if (box) box.scrollTop = box.scrollHeight;
+  if (v.screen === 'feed') hydrate();
+}
+
+/* ---------- Actions ---------- */
+
+const prev = { feed: 'schools', viewprofile: 'students', profile: 'schools', find: 'schools', grades: 'schools', students: 'grades', chats: 'schools', thread: 'chats' };
+
+/* ---------- Photos and voice notes ----------
+   Media is stored inside each message as a data URL. Photos are shrunk first and voice notes
+   are limited to 30 seconds so they fit in localStorage (about 5 MB). A real app would upload
+   files to storage (Firebase Storage or Supabase Storage) and save only the link. */
+
+const msgHtml = (m, i) => {
+  const mine = m.by === me.id, cls = mine ? 'me' : '';
+  if (m.del) return `<div class="m ${cls} gone"><i>Message deleted</i></div>`;
+  if (editing === i && mine) return `<div class="m me"><input id="et" aria-label="Edit message" value="${esc(m.t || '')}"><div class="row" style="margin-top:6px"><button class="btn" data-a="esave" data-v="${i}">Save</button><button class="btn alt" data-a="ecancel">Cancel</button></div></div>`;
+  const acts = mine ? `<div class="macts">${m.t ? `<button data-a="edit" data-v="${i}">Edit</button>` : ''}<button data-a="del" data-v="${i}">Delete</button></div>` : '';
+  return `<div class="m ${cls}">${m.img ? `<img src="${esc(m.img)}" alt="Photo">` : ''}${m.aud ? `<audio controls src="${esc(m.aud)}"></audio><div class="mut">Voice note, ${m.dur || 0}s</div>` : ''}${m.t ? esc(m.t) : ''}${m.edited ? ' <span class="mut">(edited)</span>' : ''}${acts}</div>`;
+};
+
+function sendMsg(obj) {
+  const k = pair(me.id, v.peer);
+  (DB.msgs[k] = DB.msgs[k] || []).push({ by: me.id, ...obj });
+  if (!save()) { DB.msgs[k].pop(); alert('Storage is full. Clear some data (see the notes) or use a smaller file.'); }
+  render();
+}
+
+function shrink(file, done) {
+  const r = new FileReader();
+  r.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const sc = Math.min(1, 800 / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      done(c.toDataURL('image/jpeg', 0.7));
+    };
+    img.onerror = () => alert('That file could not be read as a picture.');
+    img.src = r.result;
+  };
+  r.readAsDataURL(file);
+}
+
+function avatarPic(file, done) {
+  const r = new FileReader();
+  r.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const n = Math.min(img.width, img.height), c = document.createElement('canvas');
+      c.width = c.height = 256;
+      c.getContext('2d').drawImage(img, (img.width - n) / 2, (img.height - n) / 2, n, n, 0, 0, 256, 256);
+      done(c.toDataURL('image/jpeg', 0.8));
+    };
+    img.onerror = () => alert('That file could not be read as a picture.');
+    img.src = r.result;
+  };
+  r.readAsDataURL(file);
+}
+
+const trimLabel = p => `Keeping ${p.start.toFixed(1)}s to ${p.end.toFixed(1)}s (${(p.end - p.start).toFixed(1)}s)`;
+
+function previewHtml() {
+  const p = pend, d = p.buf ? Math.ceil(p.buf.duration * 10) / 10 : 0;
+  return `<div class="note" style="margin-bottom:8px"><b>Voice note ready</b>
+    ${p.buf ? `<label>Start<input type="range" id="ts" min="0" max="${d}" step="0.1" value="${p.start}"></label>
+    <label>End<input type="range" id="te" min="0" max="${d}" step="0.1" value="${p.end}"></label>
+    <div id="tl">${trimLabel(p)}</div>` : '<div>Trimming is not available in this browser. You can still send the full recording.</div>'}
+    <div class="row" style="margin-top:8px"><button class="btn alt" data-a="vplay">Play</button><button class="btn" data-a="vsend">Send voice note</button><button class="btn alt" data-a="vdiscard">Discard</button></div></div>`;
+}
+
+async function makePending(blob, dur) {
+  const url = await new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(blob); });
+  let buf = null;
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext, ctx = new AC();
+    buf = await ctx.decodeAudioData(await blob.arrayBuffer());
+    ctx.close();
+  } catch (e) { buf = null; }
+  pend = { url, buf, dur, start: 0, end: buf ? buf.duration : dur };
+  render();
+}
+
+function stopPlay() { if (playCtx) { playCtx.close(); playCtx = null; } }
+function playSel() {
+  if (!pend) return;
+  stopPlay();
+  if (!pend.buf) { new Audio(pend.url).play(); return; }
+  playCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const src = playCtx.createBufferSource();
+  src.buffer = pend.buf; src.connect(playCtx.destination);
+  src.start(0, pend.start, pend.end - pend.start);
+}
+
+/* Trimming re-encodes the kept part as a small mono WAV (11025 Hz, 16-bit). */
+async function trimToWav(buf, a, b) {
+  const rate = 11025, n = Math.max(1, Math.round((b - a) * rate));
+  const off = new OfflineAudioContext(1, n, rate), src = off.createBufferSource();
+  src.buffer = buf; src.connect(off.destination); src.start(0, a, b - a);
+  const out = (await off.startRendering()).getChannelData(0);
+  const dv = new DataView(new ArrayBuffer(44 + n * 2));
+  const w = (o, t) => [...t].forEach((c, i) => dv.setUint8(o + i, c.charCodeAt(0)));
+  w(0, 'RIFF'); dv.setUint32(4, 36 + n * 2, true); w(8, 'WAVE'); w(12, 'fmt ');
+  dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+  dv.setUint32(24, rate, true); dv.setUint32(28, rate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+  w(36, 'data'); dv.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) { const x = Math.max(-1, Math.min(1, out[i] || 0)); dv.setInt16(44 + i * 2, x < 0 ? x * 0x8000 : x * 0x7FFF, true); }
+  return new Promise(res => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(new Blob([dv], { type: 'audio/wav' })); });
+}
+
+async function sendVoice() {
+  const p = pend; if (!p) return;
+  let aud = p.url, dur = Math.round(p.buf ? p.buf.duration : p.dur);
+  if (p.buf && (p.start > 0.05 || p.end < p.buf.duration - 0.05)) {
+    aud = await trimToWav(p.buf, p.start, p.end); dur = Math.round(p.end - p.start);
+  }
+  stopPlay(); pend = null;
+  sendMsg({ aud, dur });
+}
+
+/* Post pictures, videos and voice-overs are too big for localStorage, so their files go in
+   IndexedDB (inside this browser). The post itself only keeps the file's id.
+   A real app would upload the files to Firebase Storage or Supabase Storage instead. */
+let dbp = null;
+const getDb = () => dbp || (dbp = new Promise((res, rej) => {
+  const r = indexedDB.open('conact-media', 1);
+  r.onupgradeneeded = () => r.result.createObjectStore('m');
+  r.onsuccess = () => res(r.result);
+  r.onerror = () => rej(r.error);
+}));
+const mput = (id, blob) => getDb().then(db => new Promise((res, rej) => { const tx = db.transaction('m', 'readwrite'); tx.objectStore('m').put(blob, id); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }));
+const mget = id => getDb().then(db => new Promise((res, rej) => { const q = db.transaction('m').objectStore('m').get(id); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }));
+const mdel = id => getDb().then(db => { db.transaction('m', 'readwrite').objectStore('m').delete(id); }).catch(() => {});
+
+const urlCache = {};
+async function hydrate() {
+  for (const el of document.querySelectorAll('[data-mid]')) {
+    const id = el.dataset.mid;
+    try {
+      if (!urlCache[id]) { const b = await mget(id); if (!b) continue; urlCache[id] = URL.createObjectURL(b); }
+      el.src = urlCache[id];
+    } catch (e) {}
+  }
+}
+
+function imgToBlob(file, max, done) {
+  const r = new FileReader();
+  r.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const sc = Math.min(1, max / Math.max(img.width, img.height)), c = document.createElement('canvas');
+      c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      c.toBlob(b => done(b), 'image/jpeg', 0.8);
+    };
+    img.onerror = () => alert('That file could not be read as a picture.');
+    img.src = r.result;
+  };
+  r.readAsDataURL(file);
+}
+
+function setMedia(type, blob) {
+  if (postDraft.media) URL.revokeObjectURL(postDraft.media.url);
+  postDraft.media = { type, blob, url: URL.createObjectURL(blob) };
+  if (type === 'video') postDraft.vo = null;           // voice-overs are for pictures
+  render();
+}
+function setVO(blob, dur) {
+  if (postDraft.vo) URL.revokeObjectURL(postDraft.vo.url);
+  postDraft.vo = { blob, dur, url: URL.createObjectURL(blob) };
+  render();
+}
+
+async function submitPost() {
+  const d = postDraft, t = ($('#ptx').value || '').trim();
+  if (!t && !d.media) { alert('Write something, or add a picture or video, before posting.'); return; }
+  const post = { id: uid('p'), by: me.id, school: me.school, t, ts: Date.now(), media: null, vo: null };
+  try {
+    if (d.media) { const id = uid('m'); await mput(id, d.media.blob); post.media = { type: d.media.type, id }; }
+    if (d.vo) { const id = uid('m'); await mput(id, d.vo.blob); post.vo = id; }
+  } catch (e) { alert('This browser could not save the picture or video. Try a smaller file.'); return; }
+  DB.posts.unshift(post);
+  if (!save()) { DB.posts.shift(); alert('Storage is full. Clear some data and try again.'); return; }
+  postDraft = { t: '' };
+  render();
+}
+
+function deletePost(id) {
+  const i = DB.posts.findIndex(p => p.id === id), p = DB.posts[i];
+  if (!p || !(p.by === me.id || DB.schools[p.school].admin === me.id)) return;
+  if (!confirm('Delete this post?')) return;
+  if (p.media) mdel(p.media.id);
+  if (p.vo) mdel(p.vo);
+  DB.posts.splice(i, 1); save(); render();
+}
+
+let mr = null, chunks = [], recTimer = null, recStart = 0, discard = false;
+
+async function toggleRec(btn, target = 'chat') {
+  if (mr) { mr.stop(); return; }
+  if (!navigator.mediaDevices || !window.MediaRecorder) { alert('Voice notes are not supported in this browser.'); return; }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    pend = null; stopPlay(); mr = new MediaRecorder(stream); chunks = []; recStart = Date.now();
+    mr.ondataavailable = e => chunks.push(e.data);
+    mr.onstop = () => {
+      stream.getTracks().forEach(t => t.stop()); clearTimeout(recTimer);
+      const type = mr.mimeType || 'audio/webm', dur = Math.round((Date.now() - recStart) / 1000);
+      mr = null;
+      if (discard) { discard = false; return; }
+      if (target === 'post') setVO(new Blob(chunks, { type }), dur); else makePending(new Blob(chunks, { type }), dur);
+    };
+    mr.start();
+    btn.textContent = target === 'post' ? 'Stop recording' : 'Stop and send'; btn.classList.add('rec');
+    recTimer = setTimeout(() => { if (mr) mr.stop(); }, target === 'post' ? 60000 : 30000);
+  } catch (e) { alert('Allow microphone access to record a voice note.'); }
+}
+function cancelRec() { discard = true; mr.stop(); }
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-a]'); if (!b) return;
+  const a = b.dataset.a, x = b.dataset.v;
+  if (a === 'mic') { toggleRec(b); return; }
+  if (a === 'photo') { $('#img').click(); return; }
+  if (a === 'pickpic') { $('#pic').click(); return; }
+  if (a === 'pphoto') { $('#pimg').click(); return; }
+  if (a === 'pvideo') { $('#pvid').click(); return; }
+  if (a === 'vomic') { toggleRec(b, 'post'); return; }
+  if (a === 'pickspic') { $('#spic').click(); return; }
+  if (a === 'vplay') { playSel(); return; }
+  if (a === 'vdiscard') { pend = null; stopPlay(); render(); return; }
+  if (a === 'vsend') { sendVoice(); return; }
+  if (mr && a !== 'post') cancelRec();
+  if (!['edit', 'esave', 'ecancel'].includes(a)) editing = null;
+  if (!['send', 'del', 'edit', 'esave', 'ecancel'].includes(a)) { pend = null; stopPlay(); }
+  if (a === 'login') {
+    const u = DB.users.find(u => u.login === $('#lu').value.trim().toLowerCase() && u.pw === $('#lp').value);
+    if (!u) { err = 'Wrong username or password.'; } else { me = u; err = ''; v = { screen: 'schools' }; }
+  }
+  else if (a === 'logout') { me = null; auth = 'in'; v = { screen: 'schools' }; postDraft = { t: '' }; feedF = 'all'; }
+  else if (a === 'toup') { auth = 'up'; err = ''; draft = {}; }
+  else if (a === 'toin') { auth = 'in'; err = ''; }
+  else if (a === 'find') v = { screen: 'find' };
+  else if (a === 'feed') v = { screen: 'feed' };
+  else if (a === 'viewposts') { feedF = x; v = { screen: 'feed' }; }
+  else if (a === 'post') { if (mr) { alert('Stop the voice-over recording first.'); return; } submitPost(); return; }
+  else if (a === 'delpost') { deletePost(x); return; }
+  else if (a === 'like') {
+    const p = DB.posts.find(q => q.id === x);
+    if (p) { const L = p.likes = p.likes || [], i = L.indexOf(me.id); if (i < 0) L.push(me.id); else L.splice(i, 1); save(); }
+  }
+  else if (a === 'ctoggle') openC[x] = !openC[x];
+  else if (a === 'cadd') {
+    const p = DB.posts.find(q => q.id === x), inp = b.previousElementSibling, t = inp ? inp.value.trim() : '';
+    if (!p || !t) return;
+    (p.comments = p.comments || []).push({ id: uid('c'), by: me.id, t, ts: Date.now() });
+    if (!save()) { p.comments.pop(); alert('Storage is full. Clear some data and try again.'); return; }
+    cdraft[x] = '';
+  }
+  else if (a === 'cdel') {
+    const [pid, cid] = x.split('|'), p = DB.posts.find(q => q.id === pid), c = p && (p.comments || []).find(q => q.id === cid);
+    if (c && (c.by === me.id || p.by === me.id || DB.schools[p.school].admin === me.id) && confirm('Delete this comment?')) {
+      p.comments = p.comments.filter(q => q.id !== cid); save();
+    }
+  }
+  else if (a === 'rmvo') { if (postDraft.vo) URL.revokeObjectURL(postDraft.vo.url); postDraft.vo = null; }
+  else if (a === 'rmmedia') { if (postDraft.media) URL.revokeObjectURL(postDraft.media.url); if (postDraft.vo) URL.revokeObjectURL(postDraft.vo.url); postDraft.media = null; postDraft.vo = null; }
+  else if (a === 'viewp') v = { screen: 'viewprofile', school: v.school, grade: v.grade, peer: x };
+  else if (a === 'profile') v = { screen: 'profile' };
+  else if (a === 'rmpic') { delete me.pic; save(); }
+  else if (a === 'rmspic') { if (DB.schools[me.school].admin === me.id) { delete DB.schools[me.school].pic; save(); } }
+  else if (a === 'savemotto') {
+    const sc = DB.schools[me.school];
+    if (sc.admin === me.id) {
+      const old = sc.motto;
+      sc.motto = $('#sm').value.trim();
+      if (!sc.motto) delete sc.motto;
+      if (save()) snote = 'Motto saved.'; else { sc.motto = old; alert('Storage is full. Clear some data and try again.'); }
+    }
+  }
+  else if (a === 'reqadmin') {
+    const sc = DB.schools[me.school];
+    if (me.role === 'teacher' && sc.admin !== me.id) { sc.adminReq = sc.adminReq || []; if (!sc.adminReq.includes(me.id)) sc.adminReq.push(me.id); save(); }
+  }
+  else if (a === 'denyadmin') { const sc = DB.schools[me.school]; if (sc.admin === me.id) { sc.adminReq = (sc.adminReq || []).filter(i => i !== x); save(); } }
+  else if (a === 'makeadmin') {
+    const sc = DB.schools[me.school], t = user(x);
+    if (sc.admin === me.id && t && t.school === me.school && confirm('Make ' + t.name + ' the school admin? You will lose admin rights.')) {
+      sc.admin = x; sc.adminReq = (sc.adminReq || []).filter(i => i !== x); save();
+    }
+  }
+  else if (a === 'edit') editing = Number(x);
+  else if (a === 'ecancel') editing = null;
+  else if (a === 'esave') {
+    const t = $('#et').value.trim(), m = (DB.msgs[pair(me.id, v.peer)] || [])[Number(x)];
+    if (!t) { alert('A message cannot be empty. Use Delete to remove it.'); return; }
+    if (m && m.by === me.id && !m.del) { m.t = t; m.edited = true; save(); }
+    editing = null;
+  }
+  else if (a === 'del') {
+    const m = (DB.msgs[pair(me.id, v.peer)] || [])[Number(x)];
+    if (m && m.by === me.id && confirm('Delete this message for everyone?')) {
+      for (const k of ['t', 'img', 'aud', 'dur', 'edited']) delete m[k];
+      m.del = true; save();
+    }
+  }
+  else if (a === 'savebio') {
+    const old = me.bio;
+    me.bio = $('#pb').value.trim() || 'New to ConAct.';
+    if (save()) note = 'Bio saved.'; else { me.bio = old; alert('Storage is full. Clear some data and try again.'); }
+  }
+  else if (a === 'linkschool') {
+    const mine = DB.schools[me.school];
+    if (!mine.partners.includes(x)) mine.partners.push(x);
+    if (!DB.schools[x].partners.includes(me.school)) DB.schools[x].partners.push(me.school);
+    save();
+  }
+  else if (a === 'signup') {
+    const g = id => $('#' + id).value.trim();
+    draft = { name: g('sn'), login: g('sl'), grade: g('sg'), school: $('#ssch').value, newName: g('snew'), bio: g('sb'), subjects: g('ss'), role: $('#srole').value, title: $('#stitle').value };
+    const pw = $('#sp').value, login = draft.login.toLowerCase();
+    let sid = draft.school, created = null;
+    err = '';
+    if (!draft.name || !login || !pw) err = 'Fill in your name, username and password.';
+    else if (pw.length < 4) err = 'Your password must be at least 4 characters.';
+    else if (DB.users.some(u => u.login === login)) err = 'That username is taken. Try another one.';
+    else if (!sid) err = 'Choose your school.';
+    else if (sid === 'new') {
+      if (!draft.newName) err = 'Type your school name.';
+      else {
+        const found = Object.keys(DB.schools).find(k => norm(DB.schools[k].name) === norm(draft.newName));
+        if (found) sid = found;                       // school already has an account: join it
+        else { sid = created = uid('sch'); DB.schools[sid] = { name: draft.newName, partners: [] }; }
+      }
+    }
+    if (!err) {
+      const common = { id: uid('u'), login, pw, name: draft.name, school: sid, bio: draft.bio || 'New to ConAct.',
+                       subjects: draft.subjects.split(',').map(t => t.trim()).filter(Boolean) };
+      const u = draft.role === 'teacher' ? { ...common, role: 'teacher', title: draft.title || 'Teacher' } : { ...common, grade: Number(draft.grade) };
+      if (created) DB.schools[created].admin = u.id;
+      DB.users.push(u); save();
+      me = u; draft = {}; v = { screen: 'schools' };
+    }
+  }
+  else if (a === 'home') v = { screen: 'schools' };
+  else if (a === 'chats') v = { screen: 'chats' };
+  else if (a === 'back') v = { ...v, screen: prev[v.screen] };
+  else if (a === 'school') v = { screen: 'grades', school: x };
+  else if (a === 'grade') v = { screen: 'students', school: v.school, grade: Number(x) };
+  else if (a === 'connect') { DB.reqs.push({ from: me.id, to: x }); save(); }
+  else if (a === 'accept') {
+    DB.reqs = DB.reqs.filter(r => !(r.from === x && r.to === me.id));
+    if (!isConn(me.id, x)) DB.conns.push([me.id, x]); save();
+  }
+  else if (a === 'decline') { DB.reqs = DB.reqs.filter(r => !(r.from === x && r.to === me.id)); save(); }
+  else if (a === 'chat') { if (isConn(me.id, x)) v = { screen: 'thread', peer: x }; }
+  else if (a === 'send') {
+    const t = $('#mt').value.trim();
+    if (t && isConn(me.id, v.peer)) { const k = pair(me.id, v.peer); (DB.msgs[k] = DB.msgs[k] || []).push({ by: me.id, t }); save(); }
+  }
+  render();
+});
+
+document.addEventListener('change', e => {
+  if (e.target.id === 'ssch') $('#snewbox').style.display = e.target.value === 'new' ? 'block' : 'none';
+  if (e.target.id === 'srole') document.querySelectorAll('.stud').forEach(x => x.style.display = e.target.value === 'teacher' ? 'none' : 'block');
+  if (e.target.id === 'srole') document.querySelectorAll('.tchr').forEach(x => x.style.display = e.target.value === 'teacher' ? 'block' : 'none');
+  if (e.target.id === 'spic' && e.target.files[0] && me && DB.schools[me.school].admin === me.id) {
+    const f = e.target.files[0];
+    if (!f.type.startsWith('image/')) { alert('Please choose a picture.'); return; }
+    const keepM = $('#sm') ? $('#sm').value : null;
+    avatarPic(f, data => {
+      const sc = DB.schools[me.school]; sc.pic = data;
+      if (!save()) { delete sc.pic; alert('Storage is full. Clear some data and try again.'); }
+      render();
+      if (keepM !== null && $('#sm')) $('#sm').value = keepM;
+    });
+  }
+  if (e.target.id === 'ff') { feedF = e.target.value; render(); }
+  if (e.target.id === 'pimg' && e.target.files[0]) {
+    const f = e.target.files[0];
+    if (!f.type.startsWith('image/')) { alert('Please choose a picture.'); return; }
+    imgToBlob(f, 1280, b => { if (b) setMedia('image', b); });
+    e.target.value = '';
+  }
+  if (e.target.id === 'pvid' && e.target.files[0]) {
+    const f = e.target.files[0];
+    if (!f.type.startsWith('video/')) { alert('Please choose a video.'); return; }
+    if (f.size > 25 * 1024 * 1024) { alert('Please choose a video smaller than 25 MB.'); return; }
+    setMedia('video', f);
+    e.target.value = '';
+  }
+  if (e.target.id === 'pic' && e.target.files[0]) {
+    const f = e.target.files[0];
+    if (!f.type.startsWith('image/')) { alert('Please choose a picture.'); return; }
+    const keep = $('#pb') ? $('#pb').value : null;
+    avatarPic(f, data => { me.pic = data; if (!save()) { delete me.pic; alert('Storage is full. Clear some data and try again.'); } render(); if (keep !== null && $('#pb')) $('#pb').value = keep; });
+  }
+  if (e.target.id === 'img' && e.target.files[0]) {
+    const f = e.target.files[0];
+    if (!f.type.startsWith('image/')) { alert('Please choose a picture.'); return; }
+    shrink(f, data => sendMsg({ img: data }));
+  }
+});
+
+document.addEventListener('input', e => {
+  if (!pend || !pend.buf || (e.target.id !== 'ts' && e.target.id !== 'te')) return;
+  const sv = Number($('#ts').value), ev = Number($('#te').value);
+  if (e.target.id === 'ts') { pend.start = Math.max(0, Math.min(sv, pend.end - 0.3)); $('#ts').value = pend.start; }
+  else { pend.end = Math.min(pend.buf.duration, Math.max(ev, pend.start + 0.3)); $('#te').value = pend.end; }
+  $('#tl').textContent = trimLabel(pend);
+});
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  if (e.target.id === 'mt') document.querySelector('[data-a="send"]').click();
+  if (e.target.id === 'et') document.querySelector('[data-a="esave"]').click();
+  if (e.target.classList && e.target.classList.contains('cin') && e.target.nextElementSibling) e.target.nextElementSibling.click();
+  if (e.target.id === 'lu' || e.target.id === 'lp') document.querySelector('[data-a="login"]').click();
+});
+
+render();
+</script>
+
+
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } 
+    from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+  import { getFirestore, collection, addDoc, onSnapshot, serverTimestamp } 
+    from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
+
+  // Your Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyBv_cZLeAQpIEnNyTFAka8OktDkV6hb9_I",
+    authDomain: "conact-app-37608.firebaseapp.com",
+    projectId: "conact-app-37608",
+    storageBucket: "conact-app-37608.appspot.com",
+    messagingSenderId: "797565075686",
+    appId: "1:797565075686:web:cb17442b2518310edf3b27",
+    measurementId: "G-NSMXVGYL3P"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Signup
+  function signup(email, password) {
+    createUserWithEmailAndPassword(auth, email, password)
+      .then(userCredential => console.log("User created:", userCredential.user))
+      .catch(error => console.error(error));
+  }
+
+  // Login
+  function login(email, password) {
+    signInWithEmailAndPassword(auth, email, password)
+      .then(userCredential => console.log("Logged in:", userCredential.user))
+      .catch(error => console.error(error));
+  }
+
+  // Send message
+  async function sendMessage(text, sender) {
+    await addDoc(collection(db, "messages"), {
+      text,
+      sender,
+      timestamp: serverTimestamp()
+    });
+  }
+
+  // Listen for messages
+  onSnapshot(collection(db, "messages"), snapshot => {
+    snapshot.docs.forEach(doc => console.log(doc.data()));
+  });
+</script>
+
+
+
+
+
+</body>
+</html>
